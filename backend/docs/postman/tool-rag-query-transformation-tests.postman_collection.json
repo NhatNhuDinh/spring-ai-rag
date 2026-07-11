@@ -1,0 +1,314 @@
+{
+  "info": {
+    "_postman_id": "63e54095-3532-4af5-bdbf-4c5ac0b6c260",
+    "name": "tool-rag Query Transformation Tests",
+    "description": "Postman collection for testing query transformation, transformed multi-query retrieval, packaged context, and chat.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 - Health Check",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('application is UP', function () {",
+              "  pm.expect(pm.response.json().status).to.eql('UP');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "health"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "02 - Query Transform - Everyday Economics Query",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('query is expanded and routed to political economy chapter 3', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.retrievalQueries.length).to.be.greaterThan(1);",
+              "  pm.expect(body.sourceFile).to.eql('triet_2.pdf');",
+              "  pm.expect(body.chapterNumber).to.eql('3');",
+              "  const normalizedQueries = body.retrievalQueries.join(' ').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();",
+              "  pm.expect(normalizedQueries).to.include('gia tri thang du');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"{{everydayEconomicsQuery}}\",\n  \"topK\": {{topK}},\n  \"similarityThreshold\": {{similarityThreshold}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/retrieval/query-transform",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "retrieval",
+            "query-transform"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "03 - Query Transform - Basic Philosophy Query",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('query is expanded and routed to philosophy chapter 1', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.retrievalQueries.length).to.be.greaterThan(1);",
+              "  pm.expect(body.sourceFile).to.eql('triet_1.pdf');",
+              "  pm.expect(body.chapterNumber).to.eql('1');",
+              "  const normalizedQueries = body.retrievalQueries.join(' ').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();",
+              "  pm.expect(normalizedQueries).to.include('van de co ban cua triet hoc');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"{{basicPhilosophyQuery}}\",\n  \"topK\": {{topK}},\n  \"similarityThreshold\": {{similarityThreshold}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/retrieval/query-transform",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "retrieval",
+            "query-transform"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "04 - Transformed Retrieval",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('transformed retrieval exposes retrieval query metadata', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.resultCount).to.be.greaterThan(0);",
+              "  pm.expect(body.results[0].queryTransformed).to.eql(true);",
+              "  pm.expect(body.results[0].retrievalQuery).to.be.a('string').and.not.empty;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"{{everydayEconomicsQuery}}\",\n  \"topK\": {{topK}},\n  \"similarityThreshold\": {{similarityThreshold}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/retrieval/transformed",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "retrieval",
+            "transformed"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "05 - Packaged Context Uses Transformed Retrieval",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('packaged context includes citation and retrieval query', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.sourceCount).to.be.greaterThan(0);",
+              "  pm.expect(body.context).to.include('[S1]');",
+              "  pm.expect(body.context).to.include('Retrieval query:');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"{{everydayEconomicsQuery}}\",\n  \"topK\": {{topK}},\n  \"similarityThreshold\": {{similarityThreshold}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/retrieval/packaged",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "retrieval",
+            "packaged"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "06 - Chat Uses Transformed RAG Pipeline",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('chat returns answer and conversationId', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.conversationId).to.be.a('string').and.not.empty;",
+              "  pm.expect(body.answer).to.be.a('string').and.not.empty;",
+              "  pm.collectionVariables.set('conversationId', body.conversationId);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"{{everydayEconomicsQuery}} Hãy trả lời ngắn gọn và trích nguồn bằng [S1] nếu có.\",\n  \"conversationId\": \"\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/chat",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "chat"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "everydayEconomicsQuery",
+      "value": "Vì sao công nhân bị bóc lột?",
+      "type": "string"
+    },
+    {
+      "key": "basicPhilosophyQuery",
+      "value": "Vật chất có trước hay ý thức có trước?",
+      "type": "string"
+    },
+    {
+      "key": "topK",
+      "value": "8",
+      "type": "string"
+    },
+    {
+      "key": "similarityThreshold",
+      "value": "0.0",
+      "type": "string"
+    },
+    {
+      "key": "conversationId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

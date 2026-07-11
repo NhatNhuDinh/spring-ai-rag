@@ -1,0 +1,71 @@
+[
+  {
+    "id": "pe_surplus_value_basic",
+    "question": "Giá trị thặng dư là gì?",
+    "expectedSourceFile": "triet_2.pdf",
+    "expectedChapter": "3",
+    "mustMention": [
+      "giá trị thặng dư"
+    ],
+    "mustNotMention": [],
+    "mustHaveCitation": true,
+    "shouldRefuse": false,
+    "refusalMustMention": []
+  },
+  {
+    "id": "pe_constant_variable_capital",
+    "question": "Tư bản bất biến và tư bản khả biến khác nhau như thế nào?",
+    "expectedSourceFile": "triet_2.pdf",
+    "expectedChapter": "3",
+    "mustMention": [
+      "tư bản bất biến",
+      "tư bản khả biến"
+    ],
+    "mustNotMention": [],
+    "mustHaveCitation": true,
+    "shouldRefuse": false,
+    "refusalMustMention": []
+  },
+  {
+    "id": "phil_basic_problem",
+    "question": "Vấn đề cơ bản của triết học là gì?",
+    "expectedSourceFile": "triet_1.pdf",
+    "expectedChapter": "1",
+    "mustMention": [
+      "vật chất",
+      "ý thức"
+    ],
+    "mustNotMention": [],
+    "mustHaveCitation": true,
+    "shouldRefuse": false,
+    "refusalMustMention": []
+  },
+  {
+    "id": "phil_materialism_idealism",
+    "question": "Chủ nghĩa duy vật và chủ nghĩa duy tâm khác nhau như thế nào?",
+    "expectedSourceFile": "triet_1.pdf",
+    "expectedChapter": "1",
+    "mustMention": [
+      "chủ nghĩa duy vật",
+      "chủ nghĩa duy tâm"
+    ],
+    "mustNotMention": [],
+    "mustHaveCitation": true,
+    "shouldRefuse": false,
+    "refusalMustMention": []
+  },
+  {
+    "id": "out_of_scope_nietzsche",
+    "question": "So sánh triết học Mác - Lênin với triết học Nietzsche theo giáo trình này.",
+    "expectedSourceFile": null,
+    "expectedChapter": null,
+    "mustMention": [],
+    "mustNotMention": [],
+    "mustHaveCitation": false,
+    "shouldRefuse": true,
+    "refusalMustMention": [
+      "ngữ cảnh",
+      "chưa đủ"
+    ]
+  }
+]

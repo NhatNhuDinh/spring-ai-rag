@@ -1,0 +1,382 @@
+{
+  "info": {
+    "_postman_id": "cb8d0e5f-54fd-4c4d-9ddf-9c4b2d2c3a11",
+    "name": "tool-rag Context Packaging And Chat Citation Tests",
+    "description": "Postman collection for testing raw retrieval, parent context expansion, packaged context with citations, and /api/chat citation behavior.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 - Health Check",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('application is UP', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.status).to.eql('UP');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "health"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "02 - Raw Retrieval Search",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('raw retrieval returns child chunks', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.resultCount).to.be.greaterThan(0);",
+              "  pm.expect(body.results[0]).to.have.property('sourceFile');",
+              "  pm.expect(body.results[0]).to.have.property('blockType');",
+              "  pm.expect(body.results[0]).to.have.property('pageStart');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"{{testQuery}}\",\n  \"topK\": {{topK}},\n  \"similarityThreshold\": {{similarityThreshold}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/retrieval/search",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "retrieval",
+            "search"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "03 - Parent Context Retrieval",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('context retrieval has seed chunks', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.resultCount).to.be.greaterThan(0);",
+              "  pm.expect(body.results.some(r => r.retrievalRole === 'seed')).to.eql(true);",
+              "});",
+              "",
+              "pm.test('context response exposes parent metadata', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.results[0]).to.have.property('parentId');",
+              "  pm.expect(body.results[0]).to.have.property('chunkIndex');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"{{testQuery}}\",\n  \"topK\": {{topK}},\n  \"similarityThreshold\": {{similarityThreshold}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/retrieval/context",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "retrieval",
+            "context"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "04 - Packaged Context With Citations",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('packaged context has citation labels', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.sourceCount).to.be.greaterThan(0);",
+              "  pm.expect(body.context).to.include('RAG_CONTEXT');",
+              "  pm.expect(body.context).to.include('[S1]');",
+              "});",
+              "",
+              "pm.test('packaged context exposes context size limit', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.contextLength).to.be.a('number');",
+              "  pm.expect(body.contextCharacterLimit).to.be.a('number');",
+              "  pm.expect(body.contextLength).to.be.at.most(body.contextCharacterLimit);",
+              "});",
+              "",
+              "pm.test('packaged context includes source metadata', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.context).to.include('- File:');",
+              "  pm.expect(body.context).to.include('- Giáo trình:');",
+              "  pm.expect(body.context).to.include('- Trang:');",
+              "  pm.expect(body.context).to.include('Nội dung:');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"{{testQuery}}\",\n  \"topK\": {{topK}},\n  \"similarityThreshold\": {{similarityThreshold}}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/retrieval/packaged",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "retrieval",
+            "packaged"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "05 - Chat Start Conversation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('chat response has conversationId and answer', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.conversationId).to.be.a('string').and.not.empty;",
+              "  pm.expect(body.answer).to.be.a('string').and.not.empty;",
+              "  pm.collectionVariables.set('conversationId', body.conversationId);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Xin chào, bạn là trợ lý môn gì?\",\n  \"conversationId\": \"\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/chat",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "chat"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "06 - Chat RAG Answer With Citations",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('chat answer is non-empty', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.conversationId).to.eql(pm.collectionVariables.get('conversationId'));",
+              "  pm.expect(body.answer).to.be.a('string').and.not.empty;",
+              "});",
+              "",
+              "pm.test('answer should contain citation label when model follows prompt', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.answer).to.match(/\\[S\\d+\\]/);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"{{testQuery}} Hãy trả lời ngắn gọn và trích nguồn bằng nhãn [S1], [S2] nếu có.\",\n  \"conversationId\": \"{{conversationId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/chat",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "chat"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "07 - Chat Follow Up Same Conversation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('same conversationId and answer returned', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.conversationId).to.eql(pm.collectionVariables.get('conversationId'));",
+              "  pm.expect(body.answer).to.be.a('string').and.not.empty;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Giải thích tiếp bằng cách so sánh ngắn gọn với giá trị thặng dư.\",\n  \"conversationId\": \"{{conversationId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/chat",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "chat"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "testQuery",
+      "value": "Tư bản bất biến và tư bản khả biến khác nhau như thế nào?",
+      "type": "string"
+    },
+    {
+      "key": "topK",
+      "value": "4",
+      "type": "string"
+    },
+    {
+      "key": "similarityThreshold",
+      "value": "0.0",
+      "type": "string"
+    },
+    {
+      "key": "conversationId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

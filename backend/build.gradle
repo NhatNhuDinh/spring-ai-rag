@@ -1,0 +1,51 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '4.1.0'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+description = 'essential-rag'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    set('springAiVersion', "2.0.0")
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+
+    // RAG: dùng Postgres + pgvector làm vector store (thay cho Qdrant)
+    implementation 'org.springframework.ai:spring-ai-starter-vector-store-pgvector'
+    // vector-store-advisor: dùng chung, chứa cả tiện ích RAG
+    implementation 'org.springframework.ai:spring-ai-vector-store-advisor'
+    // Đọc file PDF/Word/... thành text
+    implementation 'org.springframework.ai:spring-ai-tika-document-reader'
+    // Textbook ingestion: parse PDF theo page để giữ page trace và metadata.
+    implementation 'org.apache.pdfbox:pdfbox:3.0.5'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
+    }
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

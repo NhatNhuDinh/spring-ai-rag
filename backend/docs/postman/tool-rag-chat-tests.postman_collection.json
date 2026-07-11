@@ -1,0 +1,337 @@
+{
+  "info": {
+    "_postman_id": "6a8a56c7-4b94-4f11-89c1-f0d86d4a5c51",
+    "name": "tool-rag Chat API Tests",
+    "description": "Postman collection for testing the /api/chat endpoint of the tool-rag Spring AI chatbot.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 - Health Check",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('application is UP', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.status).to.eql('UP');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "health"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "02 - Chat - Start Conversation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('response has answer and conversationId', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.conversationId).to.be.a('string').and.not.empty;",
+              "  pm.expect(body.answer).to.be.a('string').and.not.empty;",
+              "  pm.collectionVariables.set('conversationId', body.conversationId);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Xin chào, bạn là trợ lý môn gì?\",\n  \"conversationId\": \"\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/chat",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "chat"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "03 - Chat - Philosophy RAG Question",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('keeps the same conversationId and returns answer', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.conversationId).to.eql(pm.collectionVariables.get('conversationId'));",
+              "  pm.expect(body.answer).to.be.a('string').and.not.empty;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Vấn đề cơ bản của triết học là gì? Hãy trả lời ngắn gọn và nêu nguồn nếu có.\",\n  \"conversationId\": \"{{conversationId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/chat",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "chat"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "04 - Chat - Follow Up In Same Conversation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('follow-up response is non-empty', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.conversationId).to.eql(pm.collectionVariables.get('conversationId'));",
+              "  pm.expect(body.answer).to.be.a('string').and.not.empty;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Giải thích tiếp sự khác nhau giữa chủ nghĩa duy vật và chủ nghĩa duy tâm.\",\n  \"conversationId\": \"{{conversationId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/chat",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "chat"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "05 - Chat - Parent Context Case",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('answer is non-empty', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.answer).to.be.a('string').and.not.empty;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Tư bản bất biến và tư bản khả biến khác nhau như thế nào?\",\n  \"conversationId\": \"{{conversationId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/chat",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "chat"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "06 - Retrieval Context Debug For Same Question",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('context contains seed chunks', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.resultCount).to.be.greaterThan(0);",
+              "  pm.expect(body.results.some(r => r.retrievalRole === 'seed')).to.eql(true);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"Tư bản bất biến và tư bản khả biến khác nhau như thế nào?\",\n  \"topK\": 4,\n  \"similarityThreshold\": 0.0\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/retrieval/context",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "retrieval",
+            "context"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "07 - Packaged Context With Citations Debug",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('packaged context has citation labels', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.sourceCount).to.be.greaterThan(0);",
+              "  pm.expect(body.context).to.include('RAG_CONTEXT');",
+              "  pm.expect(body.context).to.include('[S1]');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"Tư bản bất biến và tư bản khả biến khác nhau như thế nào?\",\n  \"topK\": 4,\n  \"similarityThreshold\": 0.0\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/retrieval/packaged",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "retrieval",
+            "packaged"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "conversationId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

@@ -1,0 +1,358 @@
+{
+  "info": {
+    "_postman_id": "0aa9db03-e22d-4f9f-82d2-bcb86f428d0b",
+    "name": "tool-rag AI SDK UI Message Stream Tests",
+    "description": "Tests the AI SDK UI Message Stream endpoint POST /api/chat/ui-stream, including protocol headers, SSE frame order, text streaming, custom data parts, sources, reset extension, errors, and the [DONE] terminator. The final request keeps the legacy endpoint for wire-format comparison.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "threadId",
+      "value": "postman-ui-stream-demo"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. General chat - AI SDK protocol",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "text/event-stream"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": [\n        {\"type\": \"text\", \"text\": \"Xin chào\"}\n      ]\n    },\n    {\n      \"role\": \"assistant\",\n      \"content\": []\n    }\n  ],\n  \"tools\": {},\n  \"system\": null,\n  \"threadId\": \"{{threadId}}\",\n  \"runConfig\": {}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/chat/ui-stream",
+        "description": "A non-academic request. Expected wire order: start -> data-status -> text-start -> text-delta... -> text-end -> data-result -> finish -> [DONE]."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response is SSE and declares AI SDK UI Message Stream v1', function () {",
+              "  const contentType = pm.response.headers.get('Content-Type') || '';",
+              "  pm.expect(contentType.toLowerCase()).to.include('text/event-stream');",
+              "  pm.expect(pm.response.headers.get('x-vercel-ai-ui-message-stream')).to.eql('v1');",
+              "});",
+              "",
+              "const body = pm.response.text();",
+              "const dataLines = body.split(/\\r?\\n/)",
+              "  .filter(line => line.startsWith('data:'))",
+              "  .map(line => line.substring(5).trimStart());",
+              "const jsonChunks = dataLines",
+              "  .filter(data => data !== '[DONE]')",
+              "  .map(data => JSON.parse(data));",
+              "const types = jsonChunks.map(chunk => chunk.type);",
+              "",
+              "pm.test('Uses default SSE message events, not legacy named events', function () {",
+              "  pm.expect(body).not.to.match(/^event:/m);",
+              "});",
+              "",
+              "pm.test('Starts with a message start frame', function () {",
+              "  pm.expect(types[0]).to.eql('start');",
+              "  pm.expect(jsonChunks[0].messageId).to.be.a('string').and.not.empty;",
+              "});",
+              "",
+              "pm.test('Text frames follow start -> delta -> end order', function () {",
+              "  const startIndex = types.indexOf('text-start');",
+              "  const deltaIndex = types.indexOf('text-delta');",
+              "  const endIndex = types.indexOf('text-end');",
+              "  pm.expect(startIndex).to.be.at.least(0);",
+              "  pm.expect(deltaIndex).to.be.above(startIndex);",
+              "  pm.expect(endIndex).to.be.above(deltaIndex);",
+              "});",
+              "",
+              "pm.test('Every text delta is compatible with AI SDK and assistant-ui decoders', function () {",
+              "  const starts = new Set(jsonChunks.filter(c => c.type === 'text-start').map(c => c.id));",
+              "  const deltas = jsonChunks.filter(c => c.type === 'text-delta');",
+              "  pm.expect(deltas.length).to.be.above(0);",
+              "  deltas.forEach(delta => {",
+              "    pm.expect(starts.has(delta.id)).to.eql(true);",
+              "    pm.expect(delta.delta).to.be.a('string');",
+              "    pm.expect(delta.textDelta).to.eql(delta.delta);",
+              "  });",
+              "});",
+              "",
+              "pm.test('Does not expose legacy domain event names as protocol types', function () {",
+              "  const legacyTypes = ['delta', 'done', 'status', 'sources', 'heartbeat', 'reset', 'refusal'];",
+              "  pm.expect(legacyTypes.some(type => types.includes(type))).to.eql(false);",
+              "});",
+              "",
+              "pm.test('Successful stream finishes and terminates with [DONE]', function () {",
+              "  pm.expect(types).to.include('finish');",
+              "  pm.expect(dataLines[dataLines.length - 1]).to.eql('[DONE]');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "2. Academic chat - statuses, sources and correction",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "text/event-stream"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": [\n        {\"type\": \"text\", \"text\": \"Giá trị thặng dư là gì?\"}\n      ]\n    }\n  ],\n  \"tools\": {},\n  \"system\": null,\n  \"threadId\": \"{{threadId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/chat/ui-stream",
+        "description": "Tests custom data-status frames, source-document frames, source metadata, optional data-reset correction, and protocol termination."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Declares AI SDK UI Message Stream v1', function () {",
+              "  pm.expect(pm.response.headers.get('x-vercel-ai-ui-message-stream')).to.eql('v1');",
+              "});",
+              "",
+              "const body = pm.response.text();",
+              "const dataLines = body.split(/\\r?\\n/)",
+              "  .filter(line => line.startsWith('data:'))",
+              "  .map(line => line.substring(5).trimStart());",
+              "const chunks = dataLines",
+              "  .filter(data => data !== '[DONE]')",
+              "  .map(data => JSON.parse(data));",
+              "const types = chunks.map(chunk => chunk.type);",
+              "",
+              "pm.test('Streams retrieval status as a custom data part', function () {",
+              "  const statuses = chunks",
+              "    .filter(chunk => chunk.type === 'data-status')",
+              "    .map(chunk => chunk.data && chunk.data.phase);",
+              "  pm.expect(statuses).to.include('retrieving');",
+              "});",
+              "",
+              "pm.test('Returns source frames, refusal text, or an error', function () {",
+              "  const hasSources = types.includes('source-document') && types.includes('data-source-metadata');",
+              "  const hasText = types.includes('text-delta');",
+              "  const hasError = types.includes('error');",
+              "  pm.expect(hasSources || hasText || hasError).to.eql(true);",
+              "});",
+              "",
+              "pm.test('Source document frames have required fields when present', function () {",
+              "  chunks.filter(chunk => chunk.type === 'source-document').forEach(source => {",
+              "    pm.expect(source.sourceId).to.be.a('string').and.not.empty;",
+              "    pm.expect(source.mediaType).to.eql('application/pdf');",
+              "    pm.expect(source.title).to.be.a('string').and.not.empty;",
+              "  });",
+              "});",
+              "",
+              "pm.test('Reset extension identifies replaced and replacement text blocks when present', function () {",
+              "  chunks.filter(chunk => chunk.type === 'data-reset').forEach(reset => {",
+              "    pm.expect(reset.transient).to.eql(true);",
+              "    pm.expect(reset.data.reason).to.be.a('string').and.not.empty;",
+              "    pm.expect(reset.data.replacedTextId).to.be.a('string').and.not.empty;",
+              "    pm.expect(reset.data.replacementTextId).to.be.a('string').and.not.empty;",
+              "    pm.expect(reset.data.replacementTextId).not.to.eql(reset.data.replacedTextId);",
+              "  });",
+              "});",
+              "",
+              "pm.test('Text IDs remain stable inside every text block', function () {",
+              "  const starts = new Set(chunks.filter(c => c.type === 'text-start').map(c => c.id));",
+              "  chunks.filter(c => c.type === 'text-delta').forEach(delta => {",
+              "    pm.expect(starts.has(delta.id)).to.eql(true);",
+              "  });",
+              "  chunks.filter(c => c.type === 'text-end').forEach(end => {",
+              "    pm.expect(starts.has(end.id)).to.eql(true);",
+              "  });",
+              "});",
+              "",
+              "pm.test('Stream has a valid terminal frame and [DONE]', function () {",
+              "  pm.expect(types.includes('finish') || types.includes('error')).to.eql(true);",
+              "  pm.expect(dataLines[dataLines.length - 1]).to.eql('[DONE]');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "3. Multi-turn request - extracts latest user message",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "text/event-stream"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"messages\": [\n    {\"role\": \"user\", \"content\": [{\"type\": \"text\", \"text\": \"Xin chào\"}]},\n    {\"role\": \"assistant\", \"content\": [{\"type\": \"text\", \"text\": \"Chào bạn\"}]},\n    {\n      \"role\": \"user\",\n      \"content\": [\n        {\"type\": \"text\", \"text\": \"Hãy trả lời ngắn gọn:\"},\n        {\"type\": \"text\", \"text\": \"Vật chất là gì?\"}\n      ]\n    },\n    {\"role\": \"assistant\", \"content\": []}\n  ],\n  \"threadId\": \"{{threadId}}\",\n  \"tools\": {},\n  \"runConfig\": {\"source\": \"postman\"}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/chat/ui-stream",
+        "description": "Confirms that the backend ignores the trailing assistant placeholder and combines text parts from the latest user message."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200 proves latest user message was accepted', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const body = pm.response.text();",
+              "const dataLines = body.split(/\\r?\\n/)",
+              "  .filter(line => line.startsWith('data:'))",
+              "  .map(line => line.substring(5).trimStart());",
+              "",
+              "pm.test('Produces a protocol start and terminal marker', function () {",
+              "  pm.expect(dataLines.some(data => data.includes('\\\"type\\\":\\\"start\\\"'))).to.eql(true);",
+              "  pm.expect(dataLines[dataLines.length - 1]).to.eql('[DONE]');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "4. Reject request without user text",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "text/event-stream"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"messages\": [\n    {\"role\": \"assistant\", \"content\": []}\n  ],\n  \"threadId\": \"{{threadId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/chat/ui-stream"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Missing user text returns HTTP 400', function () {",
+              "  pm.response.to.have.status(400);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "5. Legacy custom SSE - comparison only",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "text/event-stream"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Xin chào\",\n  \"conversationId\": \"{{threadId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/chat/stream",
+        "description": "Comparison request for the old custom protocol. This endpoint intentionally returns named SSE events such as event:start and event:delta."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Legacy endpoint still works', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const body = pm.response.text();",
+              "pm.test('Legacy endpoint still uses named SSE events', function () {",
+              "  pm.expect(body).to.match(/^event:start\\r?$/m);",
+              "  pm.expect(body).to.match(/^event:(delta|error)\\r?$/m);",
+              "});",
+              "",
+              "pm.test('Legacy endpoint does not claim AI SDK protocol', function () {",
+              "  pm.expect(pm.response.headers.get('x-vercel-ai-ui-message-stream')).to.eql(null);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    }
+  ]
+}

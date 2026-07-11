@@ -1,0 +1,378 @@
+{
+  "info": {
+    "_postman_id": "b4d8b8b7-75f1-4d27-9b83-toolragtests",
+    "name": "tool-rag Retrieval Tests",
+    "description": "Retrieval debug tests for the tool-rag Spring Web API. Run this collection after the app and pgvector are running.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('HTTP 200', function () {",
+          "  pm.response.to.have.status(200);",
+          "});",
+          "",
+          "const json = pm.response.json();",
+          "const results = json.results || [];",
+          "const expectedSource = pm.variables.get('expected_source_file');",
+          "const expectedBlockType = pm.variables.get('expected_block_type');",
+          "const expectedPageMin = Number(pm.variables.get('expected_page_min') || 0);",
+          "const expectedPageMax = Number(pm.variables.get('expected_page_max') || 0);",
+          "const caseId = pm.variables.get('case_id');",
+          "",
+          "pm.test(`[${caseId}] response has resultCount`, function () {",
+          "  pm.expect(json).to.have.property('resultCount');",
+          "});",
+          "",
+          "if (expectedSource !== 'none') {",
+          "  pm.test(`[${caseId}] has retrieval results`, function () {",
+          "    pm.expect(results.length).to.be.greaterThan(0);",
+          "  });",
+          "",
+          "  const expectedSources = expectedSource.split(',').map(s => s.trim()).filter(Boolean);",
+          "  const sourceHit = results.some(r => expectedSources.includes(r.sourceFile));",
+          "  pm.test(`[${caseId}] hits expected source file`, function () {",
+          "    pm.expect(sourceHit, `expected one of ${expectedSources.join(', ')}`).to.equal(true);",
+          "  });",
+          "",
+          "  if (expectedBlockType && expectedBlockType !== 'none') {",
+          "    const blockHit = results.some(r => r.blockType === expectedBlockType);",
+          "    pm.test(`[${caseId}] hits expected block type`, function () {",
+          "      pm.expect(blockHit, `expected block_type ${expectedBlockType}`).to.equal(true);",
+          "    });",
+          "  }",
+          "",
+          "  if (expectedPageMin > 0 && expectedPageMax > 0) {",
+          "    const pageHit = results.some(r => {",
+          "      const start = Number(r.pageStart || 0);",
+          "      const end = Number(r.pageEnd || start);",
+          "      return end >= expectedPageMin && start <= expectedPageMax;",
+          "    });",
+          "    pm.test(`[${caseId}] overlaps expected page range`, function () {",
+          "      pm.expect(pageHit, `expected overlap with pages ${expectedPageMin}-${expectedPageMax}`).to.equal(true);",
+          "    });",
+          "  }",
+          "} else {",
+          "  pm.test(`[${caseId}] out-of-domain diagnostic only`, function () {",
+          "    pm.expect(json).to.have.property('results');",
+          "  });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "RET-T1-001 - Vấn đề cơ bản của triết học",
+      "variable": [
+        {"key": "case_id", "value": "RET-T1-001"},
+        {"key": "expected_source_file", "value": "triet_1.pdf"},
+        {"key": "expected_block_type", "value": "main_content"},
+        {"key": "expected_page_min", "value": "17"},
+        {"key": "expected_page_max", "value": "18"}
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{baseUrl}}/api/retrieval/search", "host": ["{{baseUrl}}"], "path": ["api", "retrieval", "search"]},
+        "body": {"mode": "raw", "raw": "{\"query\":\"Vấn đề cơ bản của triết học là gì?\",\"topK\":{{topK}},\"similarityThreshold\":{{similarityThreshold}}}", "options": {"raw": {"language": "json"}}}
+      }
+    },
+    {
+      "name": "RET-T1-002 - Chủ nghĩa duy vật và duy tâm",
+      "variable": [
+        {"key": "case_id", "value": "RET-T1-002"},
+        {"key": "expected_source_file", "value": "triet_1.pdf"},
+        {"key": "expected_block_type", "value": "main_content"},
+        {"key": "expected_page_min", "value": "17"},
+        {"key": "expected_page_max", "value": "20"}
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{baseUrl}}/api/retrieval/search", "host": ["{{baseUrl}}"], "path": ["api", "retrieval", "search"]},
+        "body": {"mode": "raw", "raw": "{\"query\":\"Chủ nghĩa duy vật và chủ nghĩa duy tâm khác nhau ở điểm nào?\",\"topK\":{{topK}},\"similarityThreshold\":{{similarityThreshold}}}", "options": {"raw": {"language": "json"}}}
+      }
+    },
+    {
+      "name": "RET-T1-003 - Phương pháp biện chứng",
+      "variable": [
+        {"key": "case_id", "value": "RET-T1-003"},
+        {"key": "expected_source_file", "value": "triet_1.pdf"},
+        {"key": "expected_block_type", "value": "main_content"},
+        {"key": "expected_page_min", "value": "21"},
+        {"key": "expected_page_max", "value": "22"}
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{baseUrl}}/api/retrieval/search", "host": ["{{baseUrl}}"], "path": ["api", "retrieval", "search"]},
+        "body": {"mode": "raw", "raw": "{\"query\":\"Phương pháp biện chứng nhận thức đối tượng như thế nào?\",\"topK\":{{topK}},\"similarityThreshold\":{{similarityThreshold}}}", "options": {"raw": {"language": "json"}}}
+      }
+    },
+    {
+      "name": "RET-T1-004 - Nguồn gốc lý luận triết học Mác",
+      "variable": [
+        {"key": "case_id", "value": "RET-T1-004"},
+        {"key": "expected_source_file", "value": "triet_1.pdf"},
+        {"key": "expected_block_type", "value": "main_content"},
+        {"key": "expected_page_min", "value": "24"},
+        {"key": "expected_page_max", "value": "25"}
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{baseUrl}}/api/retrieval/search", "host": ["{{baseUrl}}"], "path": ["api", "retrieval", "search"]},
+        "body": {"mode": "raw", "raw": "{\"query\":\"Nguồn gốc lý luận trực tiếp của triết học Mác là gì?\",\"topK\":{{topK}},\"similarityThreshold\":{{similarityThreshold}}}", "options": {"raw": {"language": "json"}}}
+      }
+    },
+    {
+      "name": "RET-T1-005 - Vai trò của V.I. Lênin",
+      "variable": [
+        {"key": "case_id", "value": "RET-T1-005"},
+        {"key": "expected_source_file", "value": "triet_1.pdf"},
+        {"key": "expected_block_type", "value": "main_content"},
+        {"key": "expected_page_min", "value": "35"},
+        {"key": "expected_page_max", "value": "36"}
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{baseUrl}}/api/retrieval/search", "host": ["{{baseUrl}}"], "path": ["api", "retrieval", "search"]},
+        "body": {"mode": "raw", "raw": "{\"query\":\"Vai trò của V.I. Lênin trong việc bảo vệ và phát triển triết học Mác là gì?\",\"topK\":{{topK}},\"similarityThreshold\":{{similarityThreshold}}}", "options": {"raw": {"language": "json"}}}
+      }
+    },
+    {
+      "name": "RET-T1-006 - Câu hỏi ôn tập chương 1 triết",
+      "variable": [
+        {"key": "case_id", "value": "RET-T1-006"},
+        {"key": "expected_source_file", "value": "triet_1.pdf"},
+        {"key": "expected_block_type", "value": "review_question"},
+        {"key": "expected_page_min", "value": "48"},
+        {"key": "expected_page_max", "value": "48"}
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{baseUrl}}/api/retrieval/search", "host": ["{{baseUrl}}"], "path": ["api", "retrieval", "search"]},
+        "body": {"mode": "raw", "raw": "{\"query\":\"Câu hỏi ôn tập chương 1 môn Triết học Mác - Lênin gồm những câu nào?\",\"topK\":{{topK}},\"similarityThreshold\":{{similarityThreshold}}}", "options": {"raw": {"language": "json"}}}
+      }
+    },
+    {
+      "name": "RET-T1-007 - Ý thức theo duy vật biện chứng",
+      "variable": [
+        {"key": "case_id", "value": "RET-T1-007"},
+        {"key": "expected_source_file", "value": "triet_1.pdf"},
+        {"key": "expected_block_type", "value": "main_content"},
+        {"key": "expected_page_min", "value": "104"},
+        {"key": "expected_page_max", "value": "105"}
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{baseUrl}}/api/retrieval/search", "host": ["{{baseUrl}}"], "path": ["api", "retrieval", "search"]},
+        "body": {"mode": "raw", "raw": "{\"query\":\"Quan điểm duy vật biện chứng về ý thức là gì?\",\"topK\":{{topK}},\"similarityThreshold\":{{similarityThreshold}}}", "options": {"raw": {"language": "json"}}}
+      }
+    },
+    {
+      "name": "RET-T1-008 - Tương đối và tuyệt đối của chân lý",
+      "variable": [
+        {"key": "case_id", "value": "RET-T1-008"},
+        {"key": "expected_source_file", "value": "triet_1.pdf"},
+        {"key": "expected_block_type", "value": "main_content"},
+        {"key": "expected_page_min", "value": "112"},
+        {"key": "expected_page_max", "value": "112"}
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{baseUrl}}/api/retrieval/search", "host": ["{{baseUrl}}"], "path": ["api", "retrieval", "search"]},
+        "body": {"mode": "raw", "raw": "{\"query\":\"Tính tương đối và tính tuyệt đối của chân lý được hiểu như thế nào?\",\"topK\":{{topK}},\"similarityThreshold\":{{similarityThreshold}}}", "options": {"raw": {"language": "json"}}}
+      }
+    },
+    {
+      "name": "RET-T2-001 - Giá trị thặng dư",
+      "variable": [
+        {"key": "case_id", "value": "RET-T2-001"},
+        {"key": "expected_source_file", "value": "triet_2.pdf"},
+        {"key": "expected_block_type", "value": "main_content"},
+        {"key": "expected_page_min", "value": "75"},
+        {"key": "expected_page_max", "value": "76"}
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{baseUrl}}/api/retrieval/search", "host": ["{{baseUrl}}"], "path": ["api", "retrieval", "search"]},
+        "body": {"mode": "raw", "raw": "{\"query\":\"Giá trị thặng dư là gì và chương nào trình bày nội dung này?\",\"topK\":{{topK}},\"similarityThreshold\":{{similarityThreshold}}}", "options": {"raw": {"language": "json"}}}
+      }
+    },
+    {
+      "name": "RET-T2-002 - Công thức chung của tư bản",
+      "variable": [
+        {"key": "case_id", "value": "RET-T2-002"},
+        {"key": "expected_source_file", "value": "triet_2.pdf"},
+        {"key": "expected_block_type", "value": "main_content"},
+        {"key": "expected_page_min", "value": "76"},
+        {"key": "expected_page_max", "value": "77"}
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{baseUrl}}/api/retrieval/search", "host": ["{{baseUrl}}"], "path": ["api", "retrieval", "search"]},
+        "body": {"mode": "raw", "raw": "{\"query\":\"Công thức chung của tư bản là gì?\",\"topK\":{{topK}},\"similarityThreshold\":{{similarityThreshold}}}", "options": {"raw": {"language": "json"}}}
+      }
+    },
+    {
+      "name": "RET-T2-003 - Nguồn gốc giá trị thặng dư",
+      "variable": [
+        {"key": "case_id", "value": "RET-T2-003"},
+        {"key": "expected_source_file", "value": "triet_2.pdf"},
+        {"key": "expected_block_type", "value": "main_content"},
+        {"key": "expected_page_min", "value": "75"},
+        {"key": "expected_page_max", "value": "83"}
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{baseUrl}}/api/retrieval/search", "host": ["{{baseUrl}}"], "path": ["api", "retrieval", "search"]},
+        "body": {"mode": "raw", "raw": "{\"query\":\"Nguồn gốc của giá trị thặng dư theo C. Mác là gì?\",\"topK\":{{topK}},\"similarityThreshold\":{{similarityThreshold}}}", "options": {"raw": {"language": "json"}}}
+      }
+    },
+    {
+      "name": "RET-T2-004 - Tư bản bất biến và khả biến",
+      "variable": [
+        {"key": "case_id", "value": "RET-T2-004"},
+        {"key": "expected_source_file", "value": "triet_2.pdf"},
+        {"key": "expected_block_type", "value": "main_content"},
+        {"key": "expected_page_min", "value": "82"},
+        {"key": "expected_page_max", "value": "84"}
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{baseUrl}}/api/retrieval/search", "host": ["{{baseUrl}}"], "path": ["api", "retrieval", "search"]},
+        "body": {"mode": "raw", "raw": "{\"query\":\"Tư bản bất biến và tư bản khả biến khác nhau như thế nào?\",\"topK\":{{topK}},\"similarityThreshold\":{{similarityThreshold}}}", "options": {"raw": {"language": "json"}}}
+      }
+    },
+    {
+      "name": "RET-T2-005 - Máy móc và giá trị thặng dư",
+      "variable": [
+        {"key": "case_id", "value": "RET-T2-005"},
+        {"key": "expected_source_file", "value": "triet_2.pdf"},
+        {"key": "expected_block_type", "value": "main_content"},
+        {"key": "expected_page_min", "value": "82"},
+        {"key": "expected_page_max", "value": "83"}
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{baseUrl}}/api/retrieval/search", "host": ["{{baseUrl}}"], "path": ["api", "retrieval", "search"]},
+        "body": {"mode": "raw", "raw": "{\"query\":\"Vì sao máy móc không tự tạo ra giá trị thặng dư?\",\"topK\":{{topK}},\"similarityThreshold\":{{similarityThreshold}}}", "options": {"raw": {"language": "json"}}}
+      }
+    },
+    {
+      "name": "RET-T2-006 - Cấu tạo hữu cơ của tư bản",
+      "variable": [
+        {"key": "case_id", "value": "RET-T2-006"},
+        {"key": "expected_source_file", "value": "triet_2.pdf"},
+        {"key": "expected_block_type", "value": "main_content"},
+        {"key": "expected_page_min", "value": "96"},
+        {"key": "expected_page_max", "value": "97"}
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{baseUrl}}/api/retrieval/search", "host": ["{{baseUrl}}"], "path": ["api", "retrieval", "search"]},
+        "body": {"mode": "raw", "raw": "{\"query\":\"Cấu tạo hữu cơ của tư bản là gì?\",\"topK\":{{topK}},\"similarityThreshold\":{{similarityThreshold}}}", "options": {"raw": {"language": "json"}}}
+      }
+    },
+    {
+      "name": "RET-T2-007 - Tóm tắt chương 3",
+      "variable": [
+        {"key": "case_id", "value": "RET-T2-007"},
+        {"key": "expected_source_file", "value": "triet_2.pdf"},
+        {"key": "expected_block_type", "value": "summary"},
+        {"key": "expected_page_min", "value": "109"},
+        {"key": "expected_page_max", "value": "110"}
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{baseUrl}}/api/retrieval/search", "host": ["{{baseUrl}}"], "path": ["api", "retrieval", "search"]},
+        "body": {"mode": "raw", "raw": "{\"query\":\"Tóm tắt chương 3 Kinh tế chính trị nêu những nội dung nào?\",\"topK\":{{topK}},\"similarityThreshold\":{{similarityThreshold}}}", "options": {"raw": {"language": "json"}}}
+      }
+    },
+    {
+      "name": "RET-T2-008 - Thuật ngữ cần ghi nhớ chương 3",
+      "variable": [
+        {"key": "case_id", "value": "RET-T2-008"},
+        {"key": "expected_source_file", "value": "triet_2.pdf"},
+        {"key": "expected_block_type", "value": "keyword"},
+        {"key": "expected_page_min", "value": "110"},
+        {"key": "expected_page_max", "value": "110"}
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{baseUrl}}/api/retrieval/search", "host": ["{{baseUrl}}"], "path": ["api", "retrieval", "search"]},
+        "body": {"mode": "raw", "raw": "{\"query\":\"Các thuật ngữ cần ghi nhớ của chương 3 gồm những gì?\",\"topK\":{{topK}},\"similarityThreshold\":{{similarityThreshold}}}", "options": {"raw": {"language": "json"}}}
+      }
+    },
+    {
+      "name": "RET-T2-009 - Câu hỏi ôn tập chương 3 kinh tế chính trị",
+      "variable": [
+        {"key": "case_id", "value": "RET-T2-009"},
+        {"key": "expected_source_file", "value": "triet_2.pdf"},
+        {"key": "expected_block_type", "value": "review_question"},
+        {"key": "expected_page_min", "value": "111"},
+        {"key": "expected_page_max", "value": "111"}
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{baseUrl}}/api/retrieval/search", "host": ["{{baseUrl}}"], "path": ["api", "retrieval", "search"]},
+        "body": {"mode": "raw", "raw": "{\"query\":\"Câu hỏi ôn tập chương 3 Kinh tế chính trị là gì?\",\"topK\":{{topK}},\"similarityThreshold\":{{similarityThreshold}}}", "options": {"raw": {"language": "json"}}}
+      }
+    },
+    {
+      "name": "RET-MIX-001 - So sánh vật chất và giá trị thặng dư",
+      "variable": [
+        {"key": "case_id", "value": "RET-MIX-001"},
+        {"key": "expected_source_file", "value": "triet_1.pdf,triet_2.pdf"},
+        {"key": "expected_block_type", "value": "main_content"},
+        {"key": "expected_page_min", "value": "17"},
+        {"key": "expected_page_max", "value": "83"}
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{baseUrl}}/api/retrieval/search", "host": ["{{baseUrl}}"], "path": ["api", "retrieval", "search"]},
+        "body": {"mode": "raw", "raw": "{\"query\":\"So sánh cách hiểu về vật chất trong triết học với giá trị thặng dư trong kinh tế chính trị.\",\"topK\":{{topK}},\"similarityThreshold\":{{similarityThreshold}}}", "options": {"raw": {"language": "json"}}}
+      }
+    },
+    {
+      "name": "RET-OOD-001 - Out of domain",
+      "variable": [
+        {"key": "case_id", "value": "RET-OOD-001"},
+        {"key": "expected_source_file", "value": "none"},
+        {"key": "expected_block_type", "value": "none"},
+        {"key": "expected_page_min", "value": "0"},
+        {"key": "expected_page_max", "value": "0"}
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{baseUrl}}/api/retrieval/search", "host": ["{{baseUrl}}"], "path": ["api", "retrieval", "search"]},
+        "body": {"mode": "raw", "raw": "{\"query\":\"Hôm nay thời tiết Hà Nội thế nào?\",\"topK\":{{topK}},\"similarityThreshold\":{{similarityThreshold}}}", "options": {"raw": {"language": "json"}}}
+      }
+    }
+  ],
+  "variable": [
+    {"key": "baseUrl", "value": "http://localhost:8080"},
+    {"key": "topK", "value": "8"},
+    {"key": "similarityThreshold", "value": "0.0"}
+  ]
+}
