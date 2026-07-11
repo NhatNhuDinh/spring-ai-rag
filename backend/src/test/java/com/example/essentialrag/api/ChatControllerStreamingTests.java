@@ -1,9 +1,7 @@
 package com.example.essentialrag.api;
 
 import com.example.essentialrag.api.dto.AiSdkChatRequest;
-import com.example.essentialrag.api.dto.ChatRequest;
 import com.example.essentialrag.api.dto.ChatStreamEvent;
-import com.example.essentialrag.service.PhilosophyChatService;
 import com.example.essentialrag.service.streaming.AiSdkUiMessageStreamEncoder;
 import com.example.essentialrag.service.streaming.PhilosophyChatStreamingService;
 import org.junit.jupiter.api.Test;
@@ -31,40 +29,35 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ChatControllerStreamingTests {
 
   @Test
-  void mapsDomainEventsToNamedServerSentEvents() {
-    PhilosophyChatService chatService = mock(PhilosophyChatService.class);
+  void exposesOnlyFrontendStreamAndHealthEndpoints() throws Exception {
     PhilosophyChatStreamingService streamingService = mock(PhilosophyChatStreamingService.class);
-    ChatStreamEvent start = ChatStreamEvent.start("conversation-1", "message-1");
-    when(streamingService.stream("hello", "conversation-1")).thenReturn(Flux.just(start));
     ChatController controller = new ChatController(
-        chatService,
         streamingService,
         new AiSdkUiMessageStreamEncoder());
+    MockMvc mockMvc = MockMvcBuilders
+        .standaloneSetup(controller, new HealthController())
+        .build();
 
-    ResponseEntity<Flux<ServerSentEvent<ChatStreamEvent>>> response = controller.stream(
-        new ChatRequest("hello", "conversation-1"));
-    List<ServerSentEvent<ChatStreamEvent>> events = response.getBody()
-        .collectList()
-        .block(Duration.ofSeconds(1));
-
-    assertThat(response.getHeaders().getFirst("X-Accel-Buffering")).isEqualTo("no");
-    assertThat(events).singleElement().satisfies(event -> {
-      assertThat(event.event()).isEqualTo("start");
-      assertThat(event.id()).isEqualTo("message-1:0");
-      assertThat(event.data()).isEqualTo(start);
-    });
+    mockMvc.perform(MockMvcRequestBuilders.get("/api/health"))
+        .andExpect(status().isOk());
+    mockMvc.perform(MockMvcRequestBuilders.post("/api/chat"))
+        .andExpect(status().isNotFound());
+    mockMvc.perform(MockMvcRequestBuilders.post("/api/chat/stream"))
+        .andExpect(status().isNotFound());
+    mockMvc.perform(MockMvcRequestBuilders.post("/api/retrieval/search"))
+        .andExpect(status().isNotFound());
+    mockMvc.perform(MockMvcRequestBuilders.post("/api/evaluation/answer-tests/run"))
+        .andExpect(status().isNotFound());
   }
 
   @Test
   void exposesAiSdkUiMessageStreamProtocol() {
-    PhilosophyChatService chatService = mock(PhilosophyChatService.class);
     PhilosophyChatStreamingService streamingService = mock(PhilosophyChatStreamingService.class);
     when(streamingService.stream("hello", "thread-1")).thenReturn(Flux.just(
         ChatStreamEvent.start("thread-1", "message-1"),
         ChatStreamEvent.delta("thread-1", "message-1", "Hello", false),
         ChatStreamEvent.done("thread-1", "message-1", null, false)));
     ChatController controller = new ChatController(
-        chatService,
         streamingService,
         new AiSdkUiMessageStreamEncoder());
     AiSdkChatRequest request = new AiSdkChatRequest(
@@ -96,14 +89,12 @@ class ChatControllerStreamingTests {
 
   @Test
   void serializesUiMessageStreamAsRawSseFrames() throws Exception {
-    PhilosophyChatService chatService = mock(PhilosophyChatService.class);
     PhilosophyChatStreamingService streamingService = mock(PhilosophyChatStreamingService.class);
     when(streamingService.stream("hello", "thread-1")).thenReturn(Flux.just(
         ChatStreamEvent.start("thread-1", "message-1"),
         ChatStreamEvent.delta("thread-1", "message-1", "Hello", false),
         ChatStreamEvent.done("thread-1", "message-1", null, false)));
     ChatController controller = new ChatController(
-        chatService,
         streamingService,
         new AiSdkUiMessageStreamEncoder());
     MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();

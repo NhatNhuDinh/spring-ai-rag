@@ -36,33 +36,6 @@ public class AnswerGenerationService {
     this.citationCorrectionChatClient = citationCorrectionChatClient;
   }
 
-  public String generateGeneral(String question, List<Message> history) {
-    return toolEnabledChatClient.prompt()
-        .messages(withUserQuestion(history, question))
-        .call()
-        .content();
-  }
-
-  public String generateGrounded(
-      String question,
-      String groundedSystemPrompt,
-      List<Message> history) {
-
-    return groundedStreamingChatClient.prompt()
-        .messages(withSystemAndQuestion(groundedSystemPrompt, history, question))
-        .call()
-        .content();
-  }
-
-  public String generateCorrection(String correctionPrompt) {
-    return citationCorrectionChatClient.prompt()
-        .messages(
-            new SystemMessage(CORRECTION_SYSTEM_PROMPT),
-            new UserMessage(correctionPrompt))
-        .call()
-        .content();
-  }
-
   public Flux<String> streamGeneral(String question, List<Message> history) {
     return clean(toolEnabledChatClient.prompt()
         .messages(withUserQuestion(history, question))

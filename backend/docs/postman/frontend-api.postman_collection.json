@@ -1,0 +1,36 @@
+{
+  "info": {
+    "name": "Frontend Backend API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/health"
+      }
+    },
+    {
+      "name": "UI chat stream",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"},
+          {"key": "Accept", "value": "text/event-stream"}
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": [{\"type\": \"text\", \"text\": \"Giá trá» tháº·ng dÆ° là gì?\"}]\n    }\n  ],\n  \"threadId\": \"thread-1\"\n}"
+        },
+        "url": "{{baseUrl}}/api/chat/ui-stream"
+      }
+    }
+  ]
+}
