@@ -12,15 +12,18 @@ public class ContextQualityEvaluator {
 
   private final int minSources;
   private final double minVectorScore;
+  private final double minKeywordScore;
   private final double minHybridScore;
 
   public ContextQualityEvaluator(
       @Value("${rag.guardrails.context.min-sources:1}") int minSources,
       @Value("${rag.guardrails.context.min-vector-score:0.25}") double minVectorScore,
-      @Value("${rag.guardrails.context.min-hybrid-score:0.0}") double minHybridScore) {
+      @Value("${rag.guardrails.context.min-keyword-score:0.01}") double minKeywordScore,
+      @Value("${rag.guardrails.context.min-hybrid-score:0.012}") double minHybridScore) {
 
     this.minSources = Math.max(1, minSources);
     this.minVectorScore = minVectorScore;
+    this.minKeywordScore = minKeywordScore;
     this.minHybridScore = minHybridScore;
   }
 
@@ -31,12 +34,14 @@ public class ContextQualityEvaluator {
 
     double bestHybridScore = 0.0;
     double bestVectorScore = 0.0;
+    double bestKeywordScore = 0.0;
     boolean hasKeywordMatch = false;
 
     for (Document document : documents) {
       Map<String, Object> metadata = document.getMetadata();
       bestHybridScore = Math.max(bestHybridScore, number(metadata, "hybrid_score", document.getScore()));
       bestVectorScore = Math.max(bestVectorScore, number(metadata, "vector_score", null));
+      bestKeywordScore = Math.max(bestKeywordScore, number(metadata, "keyword_score", null));
       String matchedBy = string(metadata, "matched_by");
       hasKeywordMatch = hasKeywordMatch || (matchedBy != null && matchedBy.contains("keyword"));
     }
@@ -61,7 +66,8 @@ public class ContextQualityEvaluator {
           hasKeywordMatch);
     }
 
-    if (hasKeywordMatch || bestVectorScore >= minVectorScore) {
+    if ((hasKeywordMatch && bestKeywordScore >= minKeywordScore)
+        || bestVectorScore >= minVectorScore) {
       return new ContextQualityResult(
           true,
           "sufficient",

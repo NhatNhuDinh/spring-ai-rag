@@ -30,24 +30,6 @@ class HybridSearchRepositoryTests {
   }
 
   @Test
-  void keywordSqlUsesPostgresFullTextSearchWithoutJavaScanCandidateQuery() {
-    String sql = HybridSearchRepository.keywordSql(
-        "tool_rag_documents",
-        new RetrievalFilter("triet_1.pdf", "1", null));
-
-    assertThat(sql)
-        .contains("websearch_to_tsquery('simple', :keyword)")
-        .contains("websearch_to_tsquery('simple', :normalizedKeyword)")
-        .contains("ts_rank_cd(d.search_vector, q.query)")
-        .contains("ts_rank_cd(d.search_vector_normalized, q.normalized_query)")
-        .contains("d.search_vector @@ q.query")
-        .contains("d.search_vector_normalized @@ q.normalized_query")
-        .contains("order by keyword_score desc")
-        .doesNotContain("order by d.metadata->>'source_file'")
-        .doesNotContain("chunk_index");
-  }
-
-  @Test
   void matchedByDistinguishesVectorKeywordAndOverlapHits() {
     assertThat(HybridSearchRepository.matchedBy(1, null)).isEqualTo("vector");
     assertThat(HybridSearchRepository.matchedBy(null, 1)).isEqualTo("keyword");

@@ -9,7 +9,6 @@ import com.example.essentialrag.service.retrieval.RetrievalFilter;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.document.Document;
-import org.springframework.ai.vectorstore.VectorStore;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -22,26 +21,42 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class TextbookRetrievalServiceHybridTests {
 
   @Test
+  void embedsQueriesOnceAndDoesNotRepeatAnEmptyFallbackFilter() {
+    HybridSearchRepository repository = mock(HybridSearchRepository.class);
+    TextbookRetrievalService service = service(repository);
+
+    List<Document> results = service.searchHybrid("unknown topic", 3, 0.0);
+
+    assertThat(results).isEmpty();
+    verify(repository, times(1)).embed(any());
+    verify(repository, times(1)).search(
+        any(), any(), eq(1), any(float[].class),
+        eq(new RetrievalFilter(null, null, null)),
+        anyInt(), anyInt(), anyDouble());
+  }
+
+  @Test
   void hybridSearchReturnsVectorKeywordAndOverlapHitsByRrfScore() {
     HybridSearchRepository repository = mock(HybridSearchRepository.class);
     TextbookRetrievalService service = service(repository);
 
-    when(repository.search(any(), any(), eq(1), any(), anyInt(), anyInt(), anyDouble()))
+    when(repository.search(any(), any(), eq(1), any(float[].class), any(), anyInt(), anyInt(), anyDouble()))
         .thenReturn(List.of(
             document("keyword", 0.015, "keyword", null, 1),
             document("vector", 0.016, "vector", 1, null),
             document("both", 0.032, "vector,keyword", 1, 2)));
-    when(repository.search(any(), any(), eq(2), any(), anyInt(), anyInt(), anyDouble()))
+    when(repository.search(any(), any(), eq(2), any(float[].class), any(), anyInt(), anyInt(), anyDouble()))
         .thenReturn(List.of());
-    when(repository.search(any(), any(), eq(3), any(), anyInt(), anyInt(), anyDouble()))
+    when(repository.search(any(), any(), eq(3), any(float[].class), any(), anyInt(), anyInt(), anyDouble()))
         .thenReturn(List.of());
-    when(repository.search(any(), any(), eq(4), any(), anyInt(), anyInt(), anyDouble()))
+    when(repository.search(any(), any(), eq(4), any(float[].class), any(), anyInt(), anyInt(), anyDouble()))
         .thenReturn(List.of());
 
     List<Document> results = service.searchHybrid("Vì sao công nhân bị bóc lột?", 3, 0.0);
@@ -57,9 +72,9 @@ class TextbookRetrievalServiceHybridTests {
     HybridSearchRepository repository = mock(HybridSearchRepository.class);
     TextbookRetrievalService service = service(repository);
 
-    when(repository.search(any(), any(), anyInt(), any(), anyInt(), anyInt(), anyDouble()))
+    when(repository.search(any(), any(), anyInt(), any(float[].class), any(), anyInt(), anyInt(), anyDouble()))
         .thenAnswer(invocation -> {
-          RetrievalFilter filter = invocation.getArgument(3);
+          RetrievalFilter filter = invocation.getArgument(4);
           if ("triet_2.pdf".equals(filter.sourceFile())
               && "3".equals(filter.chapterNumber())
               && filter.blockType() == null) {
@@ -81,6 +96,7 @@ class TextbookRetrievalServiceHybridTests {
         any(QueryTransformation.class),
         any(),
         anyInt(),
+        any(float[].class),
         filters.capture(),
         anyInt(),
         anyInt(),
@@ -100,15 +116,15 @@ class TextbookRetrievalServiceHybridTests {
     HybridSearchRepository repository = mock(HybridSearchRepository.class);
     TextbookRetrievalService service = service(repository);
 
-    when(repository.search(any(), any(), eq(1), any(), anyInt(), anyInt(), anyDouble()))
+    when(repository.search(any(), any(), eq(1), any(float[].class), any(), anyInt(), anyInt(), anyDouble()))
         .thenReturn(List.of(
             document("single-query-hit", 0.018, "keyword", null, 1),
             document("multi-query-hit", 0.012, "keyword", null, 2)));
-    when(repository.search(any(), any(), eq(2), any(), anyInt(), anyInt(), anyDouble()))
+    when(repository.search(any(), any(), eq(2), any(float[].class), any(), anyInt(), anyInt(), anyDouble()))
         .thenReturn(List.of(document("multi-query-hit", 0.012, "keyword", null, 1)));
-    when(repository.search(any(), any(), eq(3), any(), anyInt(), anyInt(), anyDouble()))
+    when(repository.search(any(), any(), eq(3), any(float[].class), any(), anyInt(), anyInt(), anyDouble()))
         .thenReturn(List.of());
-    when(repository.search(any(), any(), eq(4), any(), anyInt(), anyInt(), anyDouble()))
+    when(repository.search(any(), any(), eq(4), any(float[].class), any(), anyInt(), anyInt(), anyDouble()))
         .thenReturn(List.of());
 
     List<Document> results = service.searchHybrid("Vì sao công nhân bị bóc lột?", 2, 0.0);
@@ -125,9 +141,9 @@ class TextbookRetrievalServiceHybridTests {
     HybridSearchRepository repository = mock(HybridSearchRepository.class);
     TextbookRetrievalService service = service(repository);
 
-    when(repository.search(any(), any(), anyInt(), any(), anyInt(), anyInt(), anyDouble()))
+    when(repository.search(any(), any(), anyInt(), any(float[].class), any(), anyInt(), anyInt(), anyDouble()))
         .thenAnswer(invocation -> {
-          RetrievalFilter filter = invocation.getArgument(3);
+          RetrievalFilter filter = invocation.getArgument(4);
           if ("review_question".equals(filter.blockType())) {
             return List.of(document(
                 "weak-vector-only-hit",
@@ -157,18 +173,20 @@ class TextbookRetrievalServiceHybridTests {
 
   private TextbookRetrievalService service(HybridSearchRepository repository) {
     QueryIntentDetector detector = new QueryIntentDetector();
+    when(repository.embed(any())).thenAnswer(invocation -> {
+      List<String> queries = invocation.getArgument(0);
+      return queries.stream().map(ignored -> new float[] {0.1f, 0.2f}).toList();
+    });
     return new TextbookRetrievalService(
-        mock(VectorStore.class),
-        detector,
         new QueryTransformer(detector, true, 4),
         repository,
         mock(ParentContextExpander.class),
         8,
         0.0,
-        true,
         40,
         0.25,
-        0.0);
+        0.01,
+        0.012);
   }
 
   private Document document(

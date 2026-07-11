@@ -58,10 +58,6 @@ public class RetrievalContextPackager {
     return enforceMaxCharacters(context.toString().trim());
   }
 
-  public int maxCharacters() {
-    return maxCharacters;
-  }
-
   private String formatSource(int index, Document document) {
     Map<String, Object> metadata = document.getMetadata();
     String label = "[S" + index + "]";

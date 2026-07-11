@@ -7,5 +7,6 @@ public record CitationValidationResult(
     boolean missingRequiredCitation,
     Set<String> answerCitations,
     Set<String> contextCitations,
-    Set<String> invalidCitations) {
+    Set<String> invalidCitations,
+    Set<String> uncitedPassages) {
 }

@@ -23,23 +23,13 @@ public class AnswerGuardrailService {
         Trả lời câu hỏi chỉ dựa trên RAG_CONTEXT được cung cấp trong system message này.
 
         Yêu cầu bắt buộc:
-        - Không gọi tool vì RAG_CONTEXT đã được backend chuẩn bị sẵn.
-        - Mọi khẳng định học thuật phải có citation dạng [S1], [S2] tương ứng.
+        - Mọi câu hoặc ý có khẳng định học thuật phải chứa citation dạng [S1], [S2] tương ứng.
         - Không dùng citation không xuất hiện trong RAG_CONTEXT.
         - Nếu RAG_CONTEXT không đủ, nói rõ ngữ cảnh giáo trình hiện có chưa đủ để kết luận.
         - Trả lời bằng tiếng Việt, rõ ràng và ngắn gọn vừa đủ.
 
         %s
         """.formatted(ragContext).trim();
-  }
-
-  public String groundedAnswerPrompt(String question, String ragContext) {
-    return """
-        %s
-
-        Câu hỏi cần trả lời:
-        %s
-        """.formatted(groundedSystemPrompt(ragContext), question).trim();
   }
 
   public String citationCorrectionPrompt(
@@ -54,13 +44,14 @@ public class AnswerGuardrailService {
         Lỗi:
         - Thiếu citation bắt buộc: %s
         - Citation không tồn tại trong RAG_CONTEXT: %s
+        - Câu hoặc ý chưa có citation: %s
 
         Hãy viết lại câu trả lời cuối cùng.
         Yêu cầu:
+        - Mỗi câu hoặc ý có khẳng định học thuật phải có citation.
         - Chỉ dùng citation có trong RAG_CONTEXT: %s
         - Không dùng citation ngoài danh sách trên.
         - Nếu không thể trả lời có căn cứ, hãy nói ngữ cảnh giáo trình hiện có chưa đủ.
-        - Không gọi thêm tool.
 
         %s
 
@@ -72,6 +63,7 @@ public class AnswerGuardrailService {
         """.formatted(
         validation.missingRequiredCitation(),
         validation.invalidCitations(),
+        validation.uncitedPassages(),
         validation.contextCitations(),
         ragContext,
         question,

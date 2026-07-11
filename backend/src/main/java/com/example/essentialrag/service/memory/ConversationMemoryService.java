@@ -30,8 +30,4 @@ public class ConversationMemoryService {
         new UserMessage(userMessage),
         new AssistantMessage(assistantMessage)));
   }
-
-  public void clear(String conversationId) {
-    chatMemory.clear(conversationId);
-  }
 }

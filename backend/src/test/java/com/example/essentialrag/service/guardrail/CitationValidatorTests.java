@@ -35,4 +35,17 @@ class CitationValidatorTests {
     assertThat(invented.valid()).isFalse();
     assertThat(invented.invalidCitations()).containsExactly("[S9]");
   }
+
+  @Test
+  void rejectsSubstantivePassagesWithoutTheirOwnCitation() {
+    CitationValidationResult result = validator.validate(
+        "Vật chất tồn tại khách quan và độc lập với ý thức [S1]. "
+            + "Ý thức có nguồn gốc tự nhiên và nguồn gốc xã hội.",
+        "RAG_CONTEXT\n[S1]\nNội dung: ...\n[S2]\nNội dung: ...",
+        true);
+
+    assertThat(result.valid()).isFalse();
+    assertThat(result.uncitedPassages())
+        .containsExactly("Ý thức có nguồn gốc tự nhiên và nguồn gốc xã hội.");
+  }
 }

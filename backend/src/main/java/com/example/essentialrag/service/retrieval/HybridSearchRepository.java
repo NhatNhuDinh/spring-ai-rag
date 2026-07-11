@@ -1,7 +1,6 @@
 package com.example.essentialrag.service.retrieval;
 
 import com.example.essentialrag.ingestion.support.TextbookText;
-import com.example.essentialrag.service.retrieval.KeywordBooster.KeywordBoost;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.ai.document.Document;
@@ -25,7 +24,6 @@ public class HybridSearchRepository {
 
   private final JdbcClient jdbcClient;
   private final EmbeddingModel embeddingModel;
-  private final KeywordBooster keywordBooster;
   private final ObjectMapper objectMapper;
   private final String tableName;
   private final int rrfK;
@@ -33,22 +31,25 @@ public class HybridSearchRepository {
   public HybridSearchRepository(
       JdbcClient jdbcClient,
       EmbeddingModel embeddingModel,
-      KeywordBooster keywordBooster,
       @Value("${spring.ai.vectorstore.pgvector.table-name:vector_store}") String tableName,
       @Value("${rag.retrieval.hybrid.rrf-k:60}") int rrfK) {
 
     this.jdbcClient = jdbcClient;
     this.embeddingModel = embeddingModel;
-    this.keywordBooster = keywordBooster;
     this.objectMapper = new ObjectMapper();
     this.tableName = validateSqlIdentifier(tableName);
     this.rrfK = Math.max(1, rrfK);
+  }
+
+  public List<float[]> embed(List<String> queries) {
+    return embeddingModel.embed(queries);
   }
 
   public List<Document> search(
       QueryTransformation transformation,
       String retrievalQuery,
       int retrievalQueryIndex,
+      float[] embedding,
       RetrievalFilter filter,
       int candidateK,
       int limit,
@@ -56,7 +57,7 @@ public class HybridSearchRepository {
 
     String keyword = fullTextQuery(retrievalQuery);
     String normalizedKeyword = normalizedFullTextQuery(retrievalQuery);
-    String embeddingLiteral = vectorLiteral(embeddingModel.embed(retrievalQuery));
+    String embeddingLiteral = vectorLiteral(embedding);
     String sql = hybridSql(tableName, filter);
 
     JdbcClient.StatementSpec spec = jdbcClient.sql(sql)
@@ -155,33 +156,6 @@ public class HybridSearchRepository {
         """.formatted(tableName, where, tableName, where, tableName);
   }
 
-  static String keywordSql(String tableName, RetrievalFilter filter) {
-    String where = metadataWhereClause("d", filter);
-    return """
-        with q as (
-          select
-            websearch_to_tsquery('simple', :keyword) as query,
-            websearch_to_tsquery('simple', :normalizedKeyword) as normalized_query
-        )
-        select
-          d.id::text as id,
-          d.content,
-          d.metadata::text as metadata,
-          greatest(
-            ts_rank_cd(d.search_vector, q.query),
-            ts_rank_cd(d.search_vector_normalized, q.normalized_query)
-          ) as keyword_score
-        from %s d, q
-        where %s
-          and (
-            d.search_vector @@ q.query
-            or d.search_vector_normalized @@ q.normalized_query
-          )
-        order by keyword_score desc
-        limit :limit
-        """.formatted(tableName, where);
-  }
-
   static String matchedBy(Integer vectorRank, Integer keywordRank) {
     if (vectorRank != null && keywordRank != null) {
       return "vector,keyword";
@@ -251,14 +225,6 @@ public class HybridSearchRepository {
     String keywordMatchType = rs.getString("keyword_match_type");
     double hybridScore = rs.getDouble("hybrid_score");
 
-    Document base = Document.builder()
-        .id(rs.getString("id"))
-        .text(rs.getString("content"))
-        .metadata(metadata)
-        .score(hybridScore)
-        .build();
-    KeywordBoost boost = keywordBooster.score(base, transformation);
-
     Map<String, Object> enriched = new LinkedHashMap<>(metadata);
     enriched.put("query_transformed", transformation.retrievalQueries().size() > 1);
     enriched.put("original_query", transformation.originalQuery());
@@ -276,12 +242,10 @@ public class HybridSearchRepository {
     enriched.put("hybrid_rrf_score", hybridScore);
     enriched.put("hybrid_rrf_k", rrfK);
     enriched.put("keyword_query", retrievalQuery);
-    enriched.put("keyword_boost_score", boost.score());
-    enriched.put("keyword_matched_terms", boost.matchedTerms());
 
     return Document.builder()
-        .id(base.getId())
-        .text(base.getText())
+        .id(rs.getString("id"))
+        .text(rs.getString("content"))
         .metadata(enriched)
         .score(hybridScore)
         .build();
