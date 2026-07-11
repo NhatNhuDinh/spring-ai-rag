@@ -13,20 +13,14 @@ import static org.mockito.Mockito.mock;
 class ChatClientConfigTests {
 
   @Test
-  void createsSeparatedChatClientsWithToolClientAsPrimary() {
+  void createsOneToolFreeChatClientForAllGenerationModes() {
     try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
       context.registerBean(ChatModel.class, () -> mock(ChatModel.class));
-      context.registerBean(RagTools.class, () -> mock(RagTools.class));
       context.register(ChatClientConfig.class);
       context.refresh();
 
       Map<String, ChatClient> clients = context.getBeansOfType(ChatClient.class);
-      assertThat(clients).containsKeys(
-          "toolEnabledChatClient",
-          "groundedStreamingChatClient",
-          "citationCorrectionChatClient");
-      assertThat(context.getBean(ChatClient.class))
-          .isSameAs(clients.get("toolEnabledChatClient"));
+      assertThat(clients).containsOnlyKeys("ragChatClient");
     }
   }
 }

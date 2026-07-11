@@ -19,21 +19,14 @@ repositories {
 }
 
 ext {
-    set('springAiVersion', "2.0.0")
+    set('springAiVersion', '2.0.0')
 }
 
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
     implementation 'org.springframework.ai:spring-ai-starter-model-openai'
-
-    // RAG: dùng Postgres + pgvector làm vector store (thay cho Qdrant)
     implementation 'org.springframework.ai:spring-ai-starter-vector-store-pgvector'
-    // vector-store-advisor: dùng chung, chứa cả tiện ích RAG
-    implementation 'org.springframework.ai:spring-ai-vector-store-advisor'
-    // Đọc file PDF/Word/... thành text
-    implementation 'org.springframework.ai:spring-ai-tika-document-reader'
-    // Textbook ingestion: parse PDF theo page để giữ page trace và metadata.
     implementation 'org.apache.pdfbox:pdfbox:3.0.5'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'

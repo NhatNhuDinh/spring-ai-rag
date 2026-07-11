@@ -45,6 +45,23 @@ header:
 x-vercel-ai-ui-message-stream: v1
 ```
 
+Chat processing uses one deterministic pipeline:
+
+```text
+explicit small talk -> plain generation
+all other questions -> query transformation
+                    -> batched embeddings
+                    -> hybrid vector/full-text retrieval with RRF
+                    -> seed quality gate
+                    -> parent-context expansion
+                    -> grounded generation
+                    -> citation validation/correction
+                    -> AI SDK SSE
+```
+
+The model has no retrieval tools. Retrieval and guardrails are always controlled
+by the backend before grounded generation.
+
 Streaming timeouts are configured with:
 
 ```properties

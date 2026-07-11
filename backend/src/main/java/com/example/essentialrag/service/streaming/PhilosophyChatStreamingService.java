@@ -4,7 +4,7 @@ import com.example.essentialrag.api.dto.ChatSource;
 import com.example.essentialrag.api.dto.ChatStreamEvent;
 import com.example.essentialrag.service.TextbookRetrievalService;
 import com.example.essentialrag.service.generation.AnswerGenerationService;
-import com.example.essentialrag.service.guardrail.AcademicQuestionDetector;
+import com.example.essentialrag.service.guardrail.SmallTalkDetector;
 import com.example.essentialrag.service.guardrail.AnswerGuardrailService;
 import com.example.essentialrag.service.guardrail.CitationValidationResult;
 import com.example.essentialrag.service.guardrail.CitationValidator;
@@ -12,6 +12,7 @@ import com.example.essentialrag.service.guardrail.ContextQualityEvaluator;
 import com.example.essentialrag.service.guardrail.ContextQualityResult;
 import com.example.essentialrag.service.memory.ConversationMemoryService;
 import com.example.essentialrag.service.retrieval.RetrievalContextPackager;
+import com.example.essentialrag.service.retrieval.TextbookRetrievalResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.Message;
@@ -39,7 +40,7 @@ public class PhilosophyChatStreamingService {
   private final ConversationMemoryService conversationMemoryService;
   private final TextbookRetrievalService retrievalService;
   private final RetrievalContextPackager contextPackager;
-  private final AcademicQuestionDetector academicQuestionDetector;
+  private final SmallTalkDetector smallTalkDetector;
   private final ContextQualityEvaluator contextQualityEvaluator;
   private final CitationValidator citationValidator;
   private final AnswerGuardrailService answerGuardrailService;
@@ -51,7 +52,7 @@ public class PhilosophyChatStreamingService {
       ConversationMemoryService conversationMemoryService,
       TextbookRetrievalService retrievalService,
       RetrievalContextPackager contextPackager,
-      AcademicQuestionDetector academicQuestionDetector,
+      SmallTalkDetector smallTalkDetector,
       ContextQualityEvaluator contextQualityEvaluator,
       CitationValidator citationValidator,
       AnswerGuardrailService answerGuardrailService,
@@ -62,7 +63,7 @@ public class PhilosophyChatStreamingService {
     this.conversationMemoryService = conversationMemoryService;
     this.retrievalService = retrievalService;
     this.contextPackager = contextPackager;
-    this.academicQuestionDetector = academicQuestionDetector;
+    this.smallTalkDetector = smallTalkDetector;
     this.contextQualityEvaluator = contextQualityEvaluator;
     this.citationValidator = citationValidator;
     this.answerGuardrailService = answerGuardrailService;
@@ -79,9 +80,9 @@ public class PhilosophyChatStreamingService {
             Flux.just(
                 ChatStreamEvent.start(effectiveConversationId, messageId),
                 ChatStreamEvent.status(effectiveConversationId, messageId, "classifying")),
-            academicQuestionDetector.isLikelyAcademicQuestion(message)
-                ? streamAcademic(message, effectiveConversationId, messageId)
-                : streamGeneral(message, effectiveConversationId, messageId)))
+            smallTalkDetector.isSmallTalk(message)
+                ? streamGeneral(message, effectiveConversationId, messageId)
+                : streamAcademic(message, effectiveConversationId, messageId)))
         .onErrorResume(error -> recover(error, effectiveConversationId, messageId))
         .doOnCancel(() -> logger.info(
             "Chat stream cancelled: conversationId={}, messageId={}",
@@ -140,9 +141,10 @@ public class PhilosophyChatStreamingService {
   }
 
   private PreparedRagContext prepareRagContext(String message) {
-    List<Document> documents = retrievalService.retrieveWithParentContext(message, null, null);
+    TextbookRetrievalResult retrieval = retrievalService.retrieve(message, null, null);
+    List<Document> documents = retrieval.contextDocuments();
     String ragContext = contextPackager.packageContext(message, documents);
-    ContextQualityResult quality = contextQualityEvaluator.evaluate(documents);
+    ContextQualityResult quality = contextQualityEvaluator.evaluate(retrieval.seedDocuments());
     return new PreparedRagContext(
         documents,
         ragContext,

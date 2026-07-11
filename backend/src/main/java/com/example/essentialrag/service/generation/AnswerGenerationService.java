@@ -15,6 +15,12 @@ import java.util.Objects;
 @Service
 public class AnswerGenerationService {
 
+  private static final String GENERAL_SYSTEM_PROMPT = """
+      Bạn là trợ lý học tập về Triết học Mác - Lênin và Kinh tế chính trị Mác - Lênin.
+      Yêu cầu hiện tại chỉ là hội thoại xã giao, không cần tra cứu giáo trình.
+      Trả lời tự nhiên, ngắn gọn bằng tiếng Việt và không nêu khẳng định học thuật.
+      """;
+
   private static final String CORRECTION_SYSTEM_PROMPT = """
       Bạn là bộ sửa câu trả lời RAG.
       Chỉ sửa câu trả lời dựa trên RAG_CONTEXT và danh sách citation được cung cấp.
@@ -22,25 +28,14 @@ public class AnswerGenerationService {
       Chỉ trả về câu trả lời cuối cùng bằng tiếng Việt.
       """;
 
-  private final ChatClient toolEnabledChatClient;
-  private final ChatClient groundedStreamingChatClient;
-  private final ChatClient citationCorrectionChatClient;
+  private final ChatClient ragChatClient;
 
-  public AnswerGenerationService(
-      @Qualifier("toolEnabledChatClient") ChatClient toolEnabledChatClient,
-      @Qualifier("groundedStreamingChatClient") ChatClient groundedStreamingChatClient,
-      @Qualifier("citationCorrectionChatClient") ChatClient citationCorrectionChatClient) {
-
-    this.toolEnabledChatClient = toolEnabledChatClient;
-    this.groundedStreamingChatClient = groundedStreamingChatClient;
-    this.citationCorrectionChatClient = citationCorrectionChatClient;
+  public AnswerGenerationService(@Qualifier("ragChatClient") ChatClient ragChatClient) {
+    this.ragChatClient = ragChatClient;
   }
 
   public Flux<String> streamGeneral(String question, List<Message> history) {
-    return clean(toolEnabledChatClient.prompt()
-        .messages(withUserQuestion(history, question))
-        .stream()
-        .content());
+    return stream(GENERAL_SYSTEM_PROMPT, history, question);
   }
 
   public Flux<String> streamGrounded(
@@ -48,45 +43,23 @@ public class AnswerGenerationService {
       String groundedSystemPrompt,
       List<Message> history) {
 
-    return clean(groundedStreamingChatClient.prompt()
-        .messages(withSystemAndQuestion(groundedSystemPrompt, history, question))
-        .stream()
-        .content());
+    return stream(groundedSystemPrompt, history, question);
   }
 
   public Flux<String> streamCorrection(String correctionPrompt) {
-    return clean(citationCorrectionChatClient.prompt()
-        .messages(
-            new SystemMessage(CORRECTION_SYSTEM_PROMPT),
-            new UserMessage(correctionPrompt))
-        .stream()
-        .content());
+    return stream(CORRECTION_SYSTEM_PROMPT, List.of(), correctionPrompt);
   }
 
-  private List<Message> withUserQuestion(List<Message> history, String question) {
-    List<Message> messages = new ArrayList<>(safeHistory(history));
-    messages.add(new UserMessage(question));
-    return messages;
-  }
-
-  private List<Message> withSystemAndQuestion(
-      String systemPrompt,
-      List<Message> history,
-      String question) {
-
+  private Flux<String> stream(String systemPrompt, List<Message> history, String question) {
     List<Message> messages = new ArrayList<>();
     messages.add(new SystemMessage(systemPrompt));
-    messages.addAll(safeHistory(history));
+    messages.addAll(history == null ? List.of() : history);
     messages.add(new UserMessage(question));
-    return messages;
-  }
 
-  private List<Message> safeHistory(List<Message> history) {
-    return history == null ? List.of() : history;
-  }
-
-  private Flux<String> clean(Flux<String> chunks) {
-    return chunks
+    return ragChatClient.prompt()
+        .messages(messages)
+        .stream()
+        .content()
         .filter(Objects::nonNull)
         .filter(chunk -> !chunk.isEmpty());
   }

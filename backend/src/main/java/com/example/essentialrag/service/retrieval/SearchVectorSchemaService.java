@@ -92,8 +92,7 @@ public class SearchVectorSchemaService {
               metadata->>'chapter_title',
               metadata->>'section_path',
               metadata->>'section_title',
-              metadata->>'block_type',
-              metadata->>'keyword_matched_terms'
+              metadata->>'block_type'
             ) as searchable
           from %s
           where metadata->>'chunk_level' = 'child'

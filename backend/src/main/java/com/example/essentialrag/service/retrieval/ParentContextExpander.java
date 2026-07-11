@@ -56,54 +56,78 @@ public class ParentContextExpander {
 
   private List<Document> expandOrThrow(List<Document> seedDocuments) {
     Map<String, Document> results = new LinkedHashMap<>();
+    List<SeedWindow> windows = new ArrayList<>();
 
-    for (int i = 0; i < seedDocuments.size() && results.size() < properties.maxResults(); i++) {
-      Document seed = seedDocuments.get(i);
-      int seedRank = i + 1;
+    for (int index = 0; index < seedDocuments.size() && results.size() < properties.maxResults(); index++) {
+      Document seed = seedDocuments.get(index);
+      int seedRank = index + 1;
       addIfAbsent(results, tag(seed, "seed", seedRank, seed.getId(), seed.getScore(), seed.getMetadata()));
 
       String parentId = string(seed.getMetadata(), "parent_id");
       String sourceFile = string(seed.getMetadata(), "source_file");
       Integer chunkIndex = integer(seed.getMetadata(), "chunk_index");
-      if (parentId == null || sourceFile == null || chunkIndex == null) {
-        continue;
+      if (parentId != null && sourceFile != null && chunkIndex != null) {
+        windows.add(new SeedWindow(
+            seed,
+            seedRank,
+            sourceFile,
+            parentId,
+            Math.max(0, chunkIndex - properties.windowBefore()),
+            chunkIndex + properties.windowAfter()));
       }
+    }
 
-      int from = Math.max(0, chunkIndex - properties.windowBefore());
-      int to = chunkIndex + properties.windowAfter();
-      for (Document context : findSiblingChunks(sourceFile, parentId, from, to)) {
+    List<Document> siblings = findSiblingChunks(windows);
+    for (SeedWindow window : windows) {
+      for (Document sibling : siblings) {
         if (results.size() >= properties.maxResults()) {
-          break;
+          return new ArrayList<>(results.values());
         }
-        if (context.getId().equals(seed.getId())) {
+        if (sibling.getId().equals(window.seed().getId()) || !window.contains(sibling)) {
           continue;
         }
-        addIfAbsent(results, tag(context, "parent_context", seedRank, seed.getId(), seed.getScore(), seed.getMetadata()));
+        addIfAbsent(results, tag(
+            sibling,
+            "parent_context",
+            window.seedRank(),
+            window.seed().getId(),
+            window.seed().getScore(),
+            window.seed().getMetadata()));
       }
     }
 
     return new ArrayList<>(results.values());
   }
 
-  private List<Document> findSiblingChunks(String sourceFile, String parentId, int fromChunkIndex, int toChunkIndex) {
+  private List<Document> findSiblingChunks(List<SeedWindow> windows) {
+    if (windows.isEmpty()) {
+      return List.of();
+    }
+
+    StringBuilder conditions = new StringBuilder();
+    List<Object> parameters = new ArrayList<>();
+    for (SeedWindow window : windows) {
+      if (!conditions.isEmpty()) {
+        conditions.append(" or ");
+      }
+      conditions.append("(metadata->>'source_file' = ? and metadata->>'parent_id' = ? ")
+          .append("and (metadata->>'chunk_index')::int between ? and ?)");
+      parameters.add(window.sourceFile());
+      parameters.add(window.parentId());
+      parameters.add(window.fromChunkIndex());
+      parameters.add(window.toChunkIndex());
+    }
+
     String sql = """
         select id::text as id, content, metadata::text as metadata
         from %s
         where metadata->>'chunk_level' = 'child'
           and metadata->>'document_type' = 'textbook'
-          and metadata->>'source_file' = ?
-          and metadata->>'parent_id' = ?
-          and (metadata->>'chunk_index')::int between ? and ?
-        order by (metadata->>'chunk_index')::int
-        """.formatted(tableName);
+          and (%s)
+        order by metadata->>'source_file', metadata->>'parent_id', (metadata->>'chunk_index')::int
+        """.formatted(tableName, conditions);
 
-    return jdbcTemplate.query(
-        sql,
-        (rs, rowNum) -> toDocument(rs),
-        sourceFile,
-        parentId,
-        fromChunkIndex,
-        toChunkIndex);
+    return jdbcTemplate.query(sql, (rs, rowNum) -> toDocument(rs), parameters.toArray());
   }
 
   private Document toDocument(ResultSet rs) throws SQLException {
@@ -145,18 +169,12 @@ public class ParentContextExpander {
     copyIfAbsent(metadata, seedMetadata, "retrieval_query_rank");
     copyIfAbsent(metadata, seedMetadata, "retrieval_query_count");
     copyIfAbsent(metadata, seedMetadata, "retrieval_mode");
-    copyIfAbsent(metadata, seedMetadata, "matched_by");
-    copyIfAbsent(metadata, seedMetadata, "vector_rank");
-    copyIfAbsent(metadata, seedMetadata, "keyword_rank");
-    copyIfAbsent(metadata, seedMetadata, "vector_score");
-    copyIfAbsent(metadata, seedMetadata, "keyword_score");
-    copyIfAbsent(metadata, seedMetadata, "hybrid_score");
 
     return Document.builder()
         .id(document.getId())
         .text(document.getText())
         .metadata(metadata)
-        .score(document.getScore())
+        .score("seed".equals(retrievalRole) ? document.getScore() : null)
         .build();
   }
 
@@ -172,10 +190,7 @@ public class ParentContextExpander {
 
   private String string(Map<String, Object> metadata, String key) {
     Object value = metadata.get(key);
-    if (value == null || value.toString().isBlank()) {
-      return null;
-    }
-    return value.toString();
+    return value == null || value.toString().isBlank() ? null : value.toString();
   }
 
   private Integer integer(Map<String, Object> metadata, String key) {
@@ -183,10 +198,7 @@ public class ParentContextExpander {
     if (value instanceof Number number) {
       return number.intValue();
     }
-    if (value == null || value.toString().isBlank()) {
-      return null;
-    }
-    return Integer.parseInt(value.toString());
+    return value == null || value.toString().isBlank() ? null : Integer.parseInt(value.toString());
   }
 
   private String validateTableName(String tableName) {
@@ -194,5 +206,31 @@ public class ParentContextExpander {
       throw new IllegalArgumentException("Invalid pgvector table name: " + tableName);
     }
     return tableName;
+  }
+
+  private record SeedWindow(
+      Document seed,
+      int seedRank,
+      String sourceFile,
+      String parentId,
+      int fromChunkIndex,
+      int toChunkIndex) {
+
+    boolean contains(Document document) {
+      Map<String, Object> metadata = document.getMetadata();
+      Object source = metadata.get("source_file");
+      Object parent = metadata.get("parent_id");
+      Object index = metadata.get("chunk_index");
+      if (source == null || parent == null || index == null) {
+        return false;
+      }
+      int chunkIndex = index instanceof Number number
+          ? number.intValue()
+          : Integer.parseInt(index.toString());
+      return sourceFile.equals(source.toString())
+          && parentId.equals(parent.toString())
+          && chunkIndex >= fromChunkIndex
+          && chunkIndex <= toChunkIndex;
+    }
   }
 }
